@@ -2,6 +2,9 @@ import io
 import numpy
 import struct
 import zipfile
+import xml.etree.ElementTree as ET
+
+SUPPORTED_MASTODON_VERSIONS = ["0.3"]
 
 
 class JavaRawReader:
@@ -59,7 +62,26 @@ class MastodonReader:
         self.source_file = source_file
 
     def read_metadata(self):
-        pass
+        with zipfile.ZipFile(self.source_file) as masto_zip:
+            with masto_zip.open("project.xml", "r") as proj_xml:
+                xml_root = ET.fromstring(proj_xml.read())
+
+        mamut_version = xml_root.attrib["version"]
+        if not mamut_version in SUPPORTED_MASTODON_VERSIONS:
+            raise RuntimeWarning(
+                f"Warning: Version mismatch with found version '{mamut_version}'. Supported are {' '.join(SUPPORTED_MASTODON_VERSIONS)}."
+            )
+
+        movie_filename = xml_root.findall("SpimDataFile")[0].text
+        space_units = xml_root.findall("SpaceUnits")[0].text
+        time_units = xml_root.findall("TimeUnits")[0].text
+
+        return {
+            "version": mamut_version,
+            "file": movie_filename,
+            "space unit": space_units,
+            "time unit": time_units,
+        }
 
     def read_tags(self):
         pass
@@ -95,8 +117,4 @@ class MastodonReader:
 
 
 if __name__ == "__main__":
-
-    mr = MastodonReader(
-        "H:/projects/066_nikhil_lineage/mastodon_playground/ilastik_bdv_hdf5_smooth.mastodon"
-    )
-    print(mr.read_graph())
+    pass
