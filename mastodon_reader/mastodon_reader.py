@@ -1,5 +1,6 @@
 import io
 import numpy
+import pandas
 import struct
 import zipfile
 import xml.etree.ElementTree as ET
@@ -89,31 +90,65 @@ class MastodonReader:
     def read_features(self):
         pass
 
+    def read_graph_networkx(self):
+        import networkx as nx
+
+        V, E = self.read_graph()
+
+        G = nx.from_pandas_edgelist(E, source="source_idx", target="target_idx")
+        nx.set_node_attributes(G, V.to_dict("index"))
+
+        return G
+
     def read_graph(self):
         with zipfile.ZipFile(self.source_file) as masto_zip:
             fh = masto_zip.open("model.raw", "r")
+
             jr = JavaRawReader(fh)
 
-            n_verticices = jr.read(4, ">i")[0]
-            V = numpy.zeros(shape=(n_verticices, 12), dtype=numpy.float32)
+            try:
+                n_verticices = jr.read(4, ">i")[0]
+                V = numpy.zeros(shape=(n_verticices, 11), dtype=numpy.float32)
 
-            for i in range(n_verticices):
-                V[i, 0:3] = jr.read(8 * 3, "<ddd")
-                V[i, 3] = jr.read(4, "<i")[0]
-                V[i, 4:11] = jr.read(8 * 7, "<ddddddd")
-                V[i, 11] = i
+                for i in range(n_verticices):
+                    V[i, 0:3] = jr.read(8 * 3, "<ddd")
+                    V[i, 3] = jr.read(4, "<i")[0]
+                    V[i, 4:11] = jr.read(8 * 7, "<ddddddd")
 
-            n_edges = jr.read(4, ">i")[0]
-            E = numpy.zeros((n_edges, 3), dtype=numpy.int32)
+                V = pandas.DataFrame(
+                    V,
+                    columns=[
+                        "x",
+                        "y",
+                        "z",
+                        "t",
+                        "c_11",
+                        "c_12",
+                        "c_13",
+                        "c_22",
+                        "c_23",
+                        "c_33",
+                        "bsrs",
+                    ],
+                )
 
-            for i in range(n_edges):
-                E[i, :2] = jr.read(4 * 4, ">iiii")[:2]
-                E[i, 2] = i - 1
+                n_edges = jr.read(4, ">i")[0]
+                E = numpy.zeros((n_edges, 3), dtype=numpy.int32)
 
-            E = E[numpy.argsort(E[:, 0]), :]
+                for i in range(n_edges):
+                    E[i, :2] = jr.read(4 * 4, ">iiii")[:2]
+                    E[i, 2] = i - 1
 
-            jr.close()
-            return V, E
+                E = E[numpy.argsort(E[:, 0]), :]
+
+                E = pandas.DataFrame(E, columns=["source_idx", "target_idx", "id"])
+
+                return V, E
+
+            except:
+                raise
+            finally:
+                jr.close()
 
 
 if __name__ == "__main__":

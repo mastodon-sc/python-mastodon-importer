@@ -1,5 +1,5 @@
 # Mastodon Reader for Python
-only GraphReader is implemented, yet
+no tags/features import is implemented, yet
 
 ported from: https://github.com/mastodon-sc/matlab-mastodon-importer
 
@@ -12,6 +12,9 @@ mr = MastodonReader("path/to/file.mastodon")
 # show meta data
 print(mr.read_metadata())
 
-# get Graph
+# get Graph (pandas tables)
 V, E = mr.read_graph()
+
+# get networkx Graph
+G = mr.read_graph_networkx()
 ```
