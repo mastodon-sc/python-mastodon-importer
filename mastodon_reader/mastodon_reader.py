@@ -1,5 +1,5 @@
 import io
-import numpy
+import numpy; np = numpy
 import pandas
 import struct
 import zipfile
@@ -7,9 +7,7 @@ import xml.etree.ElementTree as ET
 
 SUPPORTED_MASTODON_VERSIONS = ["0.3"]
 
-import numpy as np
 
-# %% ismember
 def ismember(a_vec, b_vec, method=None):
     """
 
@@ -56,8 +54,6 @@ def ismember(a_vec, b_vec, method=None):
 
     return (Iloc, idx)
 
-
-# %% Compute
 def _settypes(a_vec, b_vec):
     if "pandas" in str(type(a_vec)):
         a_vec.values[np.where(a_vec.values == None)] = "NaN"
@@ -75,7 +71,6 @@ def _settypes(a_vec, b_vec):
     return a_vec, b_vec
 
 
-# %% Compute
 def _compute(a_vec, b_vec):
     bool_ind = np.isin(a_vec, b_vec)
     common = a_vec[bool_ind]
