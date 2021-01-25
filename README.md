@@ -1,5 +1,7 @@
 # Mastodon Reader for Python
-no features import is implemented, yet
+Read graph representation, lineage tables, meta data, and tags from a Mastodon project file.
+
+(no feature import implemented, yet)
 
 ported from: https://github.com/mastodon-sc/matlab-mastodon-importer
 
