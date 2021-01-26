@@ -327,14 +327,17 @@ class MastodonFeatureFactory:
     def __init__(self):
         self._lookup = {}
 
-        # self.register_class(LinkVelocity)
-        # self.register_class(LinkDisplacement)
-        # self.register_class(SpotGaussianFilteredIntensity)
-        # self.register_class(SpotMedianIntensity)
-        # self.register_class(SpotNLinks)
-        # self.register_class(SpotSumIntensity)
-        # self.register_class(SpotTrackID)
-        # self.register_class(TrackNSpots)
+        self.register_class(DetectionQuality)
+        self.register_class(LinkCost)
+        self.register_class(LinkVelocity)
+        self.register_class(LinkDisplacement)
+        self.register_class(SpotGaussianFilteredIntensity)
+        self.register_class(SpotMedianIntensity)
+        self.register_class(SpotNLinks)
+        self.register_class(SpotSumIntensity)
+        self.register_class(SpotTrackID)
+        self.register_class(TrackNSpots)
+
         self.register_class(UpdateStackLink)
         self.register_class(UpdateStackSpot)
 
@@ -346,6 +349,9 @@ class MastodonFeatureFactory:
         if name in self._lookup:
             print("found", name)
             return self._lookup[name]
+
+        else:
+            raise RuntimeWarning(f'Unkown Mastodon feature: {name}')
 
 
 class MastodonFeature:
@@ -584,6 +590,51 @@ class UpdateStackSpot(MastodonFeature):
     name = 'Update stack Spot'
     add_to = "Spot"
     info = "Do not import"
+
+
+
+
+def _import_feature_scalar_double(jr):
+    projections = []
+    with JavaRawReader(self.mastodon_feature_file) as jr:
+            # Mean.
+        projection = dict()
+
+        projection["key"]        = jr.read_utf8()
+        projection["info"]       = jr.read_utf8()
+        projection["dimension"]  = jr.read_enum()
+        projection["units"]      = jr.read_utf8()
+        projection["map"]        = import_double_map( jr )
+
+        projections.append(projection)
+
+    return projections
+
+class DetectionQuality(MastodonFeature):
+    name = 'Detection quality'
+    add_to = "Spot"
+    info = ''
+
+    def read(self, V, E):
+        projections = []
+        with JavaRawReader(self.mastodon_feature_file) as jr:
+            projections = _import_feature_scalar_double(jr)
+
+        self.add_projections_to_table(projections, V, E)
+
+class LinkCost(MastodonFeature):
+    name = 'Link cost'
+    add_to = "Link"
+    info = ''
+
+    def read(self, V, E):
+        projections = []
+        with JavaRawReader(self.mastodon_feature_file) as jr:
+            projections = _import_feature_scalar_double(jr)
+
+        self.add_projections_to_table(projections, V, E)
+
+
 
 
 def import_double_map(jr):
