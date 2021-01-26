@@ -65,6 +65,9 @@ class JavaRawReader:
     def read_double_rev(self):
         return self.read(8, ">d")[0]
 
+    def read_enum(self):
+        pass ### TODO
+
 
     def _fetch_block(self):
         block_key = struct.unpack(">b", self._fh.read(1))[0]
@@ -259,9 +262,6 @@ class MastodonReader:
                     masto_feature.read(V, E)
 
 
-
-
-
     def create_nx_graph(self, V, E):
         import networkx as nx
 
@@ -327,8 +327,9 @@ class MastodonFeatureFactory:
     def __init__(self):
         self._lookup = {}
 
-        self.register_class(DetectionQuality)
-        self.register_class(LinkCost)
+        # self.register_class(DetectionQuality) ### TODO, read_enum()
+        # self.register_class(LinkCost)
+
         self.register_class(LinkVelocity)
         self.register_class(LinkDisplacement)
         self.register_class(SpotGaussianFilteredIntensity)
@@ -602,7 +603,7 @@ def _import_feature_scalar_double(jr):
 
         projection["key"]        = jr.read_utf8()
         projection["info"]       = jr.read_utf8()
-        projection["dimension"]  = jr.read_enum()
+        projection["dimension"]  = jr.read_enum() ### TODO
         projection["units"]      = jr.read_utf8()
         projection["map"]        = import_double_map( jr )
 
