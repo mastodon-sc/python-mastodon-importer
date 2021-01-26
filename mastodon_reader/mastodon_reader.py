@@ -1,4 +1,5 @@
 import io
+import re
 import numpy
 import pandas
 import struct
@@ -8,7 +9,6 @@ import xml.etree.ElementTree as ET
 from .utils import ismember, RGBint2RGB
 
 SUPPORTED_MASTODON_VERSIONS = ["0.3"]
-
 
 class JavaRawReader:
     MAGIC = -21267
@@ -37,6 +37,12 @@ class JavaRawReader:
     def __exit__(self, type, value, traceback):
         self.close()
 
+    def close(self):
+        self._fh.close()
+
+    def __del__(self):
+        self.close()
+
     def read(self, size, fmt):
         if size > len(self.block) - self.index:
             self._fetch_block()
@@ -54,8 +60,11 @@ class JavaRawReader:
 
     def read_utf8(self):
         str_length = self.read_short()
-
         return b"".join(self.read(str_length, ">" + "c" * str_length)).decode("utf-8")
+
+    def read_double_rev(self):
+        return self.read(8, ">d")[0]
+
 
     def _fetch_block(self):
         block_key = struct.unpack(">b", self._fh.read(1))[0]
@@ -64,17 +73,13 @@ class JavaRawReader:
         elif block_key == 119:
             block_length = struct.unpack(">b", self._fh.read(1))[0]
         else:
-            raise RuntimeError("block not understood")
+            raise RuntimeError("Java bytle block key not understood")
 
         self.block = self.block[self.index :] + self._fh.read(block_length)
 
         self.index = 0
 
-    def close(self):
-        self._fh.close()
 
-    def __del__(self):
-        self.close()
 
 
 class MastodonReader:
@@ -86,10 +91,10 @@ class MastodonReader:
             with masto_zip.open("project.xml", "r") as proj_xml:
                 xml_root = ET.fromstring(proj_xml.read())
 
-        mamut_version = xml_root.attrib["version"]
-        if not mamut_version in SUPPORTED_MASTODON_VERSIONS:
+        mastodon_version = xml_root.attrib["version"]
+        if not mastodon_version in SUPPORTED_MASTODON_VERSIONS:
             raise RuntimeWarning(
-                f"Warning: Version mismatch with found version '{mamut_version}'. Supported are {' '.join(SUPPORTED_MASTODON_VERSIONS)}."
+                f"Warning: Version mismatch with found version '{mastodon_version}'. Supported are {' '.join(SUPPORTED_MASTODON_VERSIONS)}."
             )
 
         movie_filename = xml_root.findall("SpimDataFile")[0].text
@@ -97,7 +102,7 @@ class MastodonReader:
         time_units = xml_root.findall("TimeUnits")[0].text
 
         return {
-            "version": mamut_version,
+            "version": mastodon_version,
             "file": movie_filename,
             "space unit": space_units,
             "time unit": time_units,
@@ -233,8 +238,29 @@ class MastodonReader:
 
         return tag_sets
 
-    def read_features(self):
-        pass
+    def read_features(self, V, E):
+        with zipfile.ZipFile(self.source_file) as masto_zip:
+            feature_files = filter(lambda fn: fn.startswith("features/") and
+            fn.endswith(".raw"), masto_zip.namelist())
+
+            features = {}
+            pat  = re.compile(r"^features/(.+?)\.raw$")
+            for fn in feature_files:
+                match = pat.search(fn)
+                if match:
+                    features[match.group(1)] = masto_zip.open(fn, "r")
+
+            mff = MastodonFeatureFactory()
+
+            for feature_name, feature_fn in features.items():
+                masto_feature_class = mff(feature_name)
+                if masto_feature_class:
+                    masto_feature = masto_feature_class(feature_fn)
+                    masto_feature.read(V, E)
+
+
+
+
 
     def create_nx_graph(self, V, E):
         import networkx as nx
@@ -288,13 +314,301 @@ class MastodonReader:
 
                 for i in range(n_edges):
                     E[i, :2] = jr.read(4 * 4, ">iiii")[:2]
-                    E[i, 2] = i - 1
+                    E[i, 2] = i
 
                 E = E[numpy.argsort(E[:, 0]), :]
 
                 E = pandas.DataFrame(E, columns=["source_idx", "target_idx", "id"])
 
                 return V, E
+
+
+class MastodonFeatureFactory:
+    def __init__(self):
+        self._lookup = {}
+
+        # self.register_class(LinkVelocity)
+        # self.register_class(LinkDisplacement)
+        # self.register_class(SpotGaussianFilteredIntensity)
+        # self.register_class(SpotMedianIntensity)
+        # self.register_class(SpotNLinks)
+        # self.register_class(SpotSumIntensity)
+        # self.register_class(SpotTrackID)
+        # self.register_class(TrackNSpots)
+        self.register_class(UpdateStackLink)
+        self.register_class(UpdateStackSpot)
+
+
+    def register_class(self, klass):
+        self._lookup[klass.name] = klass
+
+    def __call__(self, name):
+        if name in self._lookup:
+            print("found", name)
+            return self._lookup[name]
+
+
+class MastodonFeature:
+    name = None
+    add_to = None
+    info = None
+
+    def __init__(self, mastodon_feature_file):
+        self.mastodon_feature_file = mastodon_feature_file
+
+    def read(self, V, E):
+        pass
+
+    def add_projections_to_table(self, projections, V, E):
+        if self.add_to == "Link":
+            tab = E
+        elif self.add_to == "Spot":
+            tab = V
+        else:
+            raise RuntimeWarning(f"Mastodon Feature '{self.name}': cannot add features to table")
+            return
+
+        for projection in projections:
+            tab[projection["key"]] = -1
+            _, idx  = ismember( projection["map"][:, 0].astype("int32") , tab.index.to_numpy())
+            tab.loc[idx, projection["key"] ] = projection["map"][:, 1]
+
+
+
+class LinkVelocity(MastodonFeature):
+    name = 'Link velocity'
+    add_to = "Link"
+    info = 'Computes the link velocity as the distance between the source and target spots divided by their frame difference. Units are in physical distance per frame.'
+
+    def read(self, V, E):
+        projections = []
+        with JavaRawReader(self.mastodon_feature_file) as jr:
+            projection = dict()
+            projection["key"]         = 'Link velocity'
+            projection["info"]        = self.info
+            projection["dimension"]   = 'VELOCITY'
+            projection["units"]       = jr.read_utf8()
+            projection["map"]         = import_double_map( jr )
+
+            projections.append(projection)
+
+        self.add_projections_to_table(projections, V, E)
+
+
+
+class LinkDisplacement(MastodonFeature):
+    name = 'Link displacement'
+    add_to = "Link"
+    info = 'Computes the link displacement in physical units as the distance between the source spot and the target spot.'
+
+    def read(self, V, E):
+        projections = []
+        with JavaRawReader(self.mastodon_feature_file) as jr:
+            projection = dict()
+            projection["key"]         = 'Link displacement'
+            projection["info"]        = self.info
+            projection["dimension"]   = 'LENGTH'
+            projection["units"]       = jr.read_utf8()
+            projection["map"]         = import_double_map( jr )
+
+            projections.append(projection)
+
+        self.add_projections_to_table(projections, V, E)
+
+
+class SpotGaussianFilteredIntensity(MastodonFeature):
+    name = 'Spot gaussian-filtered intensity'
+    add_to = "Spot"
+    info = """Computes the average intensity and its standard deviation inside spots over all
+            sources of the dataset. The average is calculated by a weighted mean over the pixels
+            of the spot, weighted by a gaussian centered in the spot and with a sigma value equal
+            to the minimal radius of the ellipsoid divided by 2."""
+
+    def read(self, V, E):
+        projections = []
+        with JavaRawReader(self.mastodon_feature_file) as jr:
+            n_sources = jr.read_int();
+            for ch in range(n_sources):
+                # Mean.
+                projection = dict()
+
+                projection["key"]        = f'Spot gaussian filtered intensity Mean ch{ch}'
+                projection["info"]       = self.info
+                projection["dimension"]  = 'INTENSITY'
+                projection["units"]      = 'Counts'
+                projection["map"]        = import_double_map( jr )
+
+                projections.append(projection)
+
+                # Std.
+                projection = dict()
+
+                projection["key"]         = f'Spot gaussian filtered intensity Std ch{ch}'
+                projection["info"]        = self.info
+                projection["dimension"]   = 'INTENSITY'
+                projection["units"]       = 'Counts'
+                projection["map"]         = import_double_map( jr)
+
+                projections.append(projection)
+
+        self.add_projections_to_table(projections, V, E)
+
+class SpotMedianIntensity(MastodonFeature):
+    name = 'Spot median intensity'
+    add_to = "Spot"
+    info = """Computes the median intensity inside a spot,
+              for the pixels inside the largest box that fits into the spot ellipsoid."""
+
+    def read(self, V, E):
+        projections = []
+        with JavaRawReader(self.mastodon_feature_file) as jr:
+            n_sources = jr.read_int();
+            for ch in range(n_sources):
+                # Mean.
+                projection = dict()
+
+                projection["key"]        = f'Spot median intensity ch{ch}'
+                projection["info"]       = self.info
+                projection["dimension"]  = 'INTENSITY'
+                projection["units"]      = 'Counts'
+                projection["map"]        = import_double_map( jr )
+
+                projections.append(projection)
+
+
+        self.add_projections_to_table(projections, V, E)
+
+class SpotNLinks(MastodonFeature):
+    name = 'Spot N links'
+    add_to = "Spot"
+    info = 'Computes the number of links that touch a spot.'
+
+    def read(self, V, E):
+        projections = []
+        with JavaRawReader(self.mastodon_feature_file) as jr:
+                # Mean.
+            projection = dict()
+
+            projection["key"]        = 'Spot N links'
+            projection["info"]       = self.info
+            projection["dimension"]  = 'None'
+            projection["units"]      = ''
+            projection["map"]        = import_int_map( jr )
+
+            projections.append(projection)
+
+
+        self.add_projections_to_table(projections, V, E)
+
+
+
+
+class SpotSumIntensity(MastodonFeature):
+    name = 'Spot sum intensity'
+    add_to = "Spot"
+    info = 'Computes the total intensity inside a spot, for the pixels inside the spot ellipsoid.'
+
+    def read(self, V, E):
+        projections = []
+        with JavaRawReader(self.mastodon_feature_file) as jr:
+            n_sources = jr.read_int();
+            for ch in range(n_sources):
+                # Mean.
+                projection = dict()
+
+                projection["key"]        = f'Spot sum intensity ch{ch}'
+                projection["info"]       = self.info
+                projection["dimension"]  = 'INTENSITY'
+                projection["units"]      = 'Counts'
+                projection["map"]        = import_double_map( jr )
+
+                projections.append(projection)
+
+        self.add_projections_to_table(projections, V, E)
+
+
+class SpotTrackID(MastodonFeature):
+    name = 'Spot track ID'
+    add_to = "Spot"
+    info = 'Returns the ID of the track each spot belongs to.'
+
+    def read(self, V, E):
+        projections = []
+        with JavaRawReader(self.mastodon_feature_file) as jr:
+                # Mean.
+            projection = dict()
+
+            projection["key"]        = 'Spot track ID'
+            projection["info"]       = self.info
+            projection["dimension"]  = 'None'
+            projection["units"]      = ''
+            projection["map"]        = import_int_map( jr )
+
+            projections.append(projection)
+
+
+        self.add_projections_to_table(projections, V, E)
+
+
+
+class TrackNSpots(MastodonFeature):
+    name = 'Track N spots'
+    add_to = "Spot"
+    info = 'Returns the number of spots in a track.'
+
+    def read(self, V, E):
+        projections = []
+        with JavaRawReader(self.mastodon_feature_file) as jr:
+                # Mean.
+            projection = dict()
+
+            projection["key"]        = 'Spot track ID'
+            projection["info"]       = self.info
+            projection["dimension"]  = 'None'
+            projection["units"]      = ''
+            projection["map"]        = import_int_map( jr )
+
+            projections.append(projection)
+
+
+        self.add_projections_to_table(projections, V, E)
+
+
+
+class UpdateStackLink(MastodonFeature):
+    name = 'Update stack Link'
+    add_to = "Link"
+    info = "Do not import"
+
+class UpdateStackSpot(MastodonFeature):
+    name = 'Update stack Spot'
+    add_to = "Spot"
+    info = "Do not import"
+
+
+def import_double_map(jr):
+    n_entries   = jr.read_int()
+    map_ = numpy.zeros((n_entries, 2) )
+    for proj in  range(n_entries):
+        map_[proj , 0] = jr.read_int()
+        map_[proj , 1] = jr.read_double_rev()
+
+    return map_
+
+def import_int_map(jr):
+    n_entries   = jr.read_int()
+    map_ = numpy.zeros((n_entries, 2), dtype="int32")
+    for proj in  range(n_entries):
+        map_[proj , 0] = jr.read_int()
+        map_[proj , 1] = jr.read_int()
+
+    return map_
+
+
+
+
+
+
 
 
 if __name__ == "__main__":
