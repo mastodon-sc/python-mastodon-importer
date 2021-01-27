@@ -5,6 +5,7 @@ ported to Python from: [Matlab importer](https://github.com/mastodon-sc/matlab-m
 
 ## Example
 Read the mastodon file:
+
 ```python
 from mastodon_reader import MastodonReader
 
@@ -23,11 +24,11 @@ or read information separately
 # read only spot and link tables
 spots, links = mr.read_tables()
 
-# read tags and add as new columns to the spot and link tables
+# read tag_definition and add tags as new columns to the spot and link tables
 tag_definition = mr.read_tags(spots, links)
 
 # read features and add as new columns to the spot and link tables
-tag_definition = mr.read_features(spots, links)
+mr.read_features(spots, links)
 
 # create networkX DiGraph representation form spots and links
 graph = mr.create_nx_graph(spots, links)
