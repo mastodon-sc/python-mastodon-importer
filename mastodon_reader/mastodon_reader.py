@@ -272,10 +272,16 @@ class MastodonReader:
 
         return G
 
-    def read(self):
+    def read(self, feature=True, tags=True):
         V, E = self.read_tables()
-        tss = self.read_tags(V, E)
         G = self.create_nx_graph(V, E)
+
+        tss = None
+        if tags:
+            tss = self.read_tags(V, E)
+
+        if features:
+            self.read_features(V, E)
 
         return G, V, E, tss
 
