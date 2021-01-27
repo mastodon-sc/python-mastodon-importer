@@ -272,7 +272,7 @@ class MastodonReader:
 
         return G
 
-    def read(self, feature=True, tags=True):
+    def read(self, features=True, tags=True):
         V, E = self.read_tables()
         G = self.create_nx_graph(V, E)
 
@@ -358,7 +358,7 @@ class MastodonFeatureFactory:
             return self._lookup[name]
 
         else:
-            raise RuntimeWarning(f'Unkown Mastodon feature: {name}')
+            print(f'Warning: Unkown Mastodon feature: {name}')
 
 
 class MastodonFeature:
