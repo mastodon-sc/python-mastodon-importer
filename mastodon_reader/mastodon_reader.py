@@ -4,6 +4,7 @@ import numpy
 import pandas
 import struct
 import zipfile
+import warnings
 import xml.etree.ElementTree as ET
 
 from .utils import ismember, RGBint2RGB
@@ -68,7 +69,6 @@ class JavaRawReader:
     def read_enum(self):
         pass ### TODO
 
-
     def _fetch_block(self):
         block_key = struct.unpack(">b", self._fh.read(1))[0]
         if block_key == 122:
@@ -76,7 +76,7 @@ class JavaRawReader:
         elif block_key == 119:
             block_length = struct.unpack(">b", self._fh.read(1))[0]
         else:
-            raise RuntimeError("Java bytle block key not understood")
+            raise RuntimeError("Java byte block key not understood")
 
         self.block = self.block[self.index :] + self._fh.read(block_length)
 
@@ -96,9 +96,9 @@ class MastodonReader:
 
         mastodon_version = xml_root.attrib["version"]
         if not mastodon_version in SUPPORTED_MASTODON_VERSIONS:
-            raise RuntimeWarning(
+            warnings.warn(
                 f"Warning: Version mismatch with found version '{mastodon_version}'. Supported are {' '.join(SUPPORTED_MASTODON_VERSIONS)}."
-            )
+            , RuntimeWarning)
 
         movie_filename = xml_root.findall("SpimDataFile")[0].text
         space_units = xml_root.findall("SpaceUnits")[0].text
@@ -158,7 +158,6 @@ class MastodonReader:
             n_labels = len(label_set)
 
             for j in range(n_labels):
-
                 # What is the tag-id of this element in the label set?
                 tag_id = label_set[j]
 
@@ -172,7 +171,6 @@ class MastodonReader:
                 object_ids = map_[idx2, 0]
 
                 # % What are the rows, in the table, that have these ids?
-
                 _, idx1 = ismember(object_ids, tab.index.to_numpy())
 
                 #% Fill these rows with the tag_id
@@ -330,12 +328,16 @@ class MastodonReader:
 
 
 class MastodonFeatureFactory:
+    """Factory class for Mastodon features
+    """
     def __init__(self):
         self._lookup = {}
 
-        # self.register_class(DetectionQuality) ### TODO, read_enum()
+        # TODO implement read_enum()
+        # self.register_class(DetectionQuality)
         # self.register_class(LinkCost)
 
+        # okay, as in Matlab reader
         self.register_class(LinkVelocity)
         self.register_class(LinkDisplacement)
         self.register_class(SpotGaussianFilteredIntensity)
@@ -345,6 +347,10 @@ class MastodonFeatureFactory:
         self.register_class(SpotTrackID)
         self.register_class(TrackNSpots)
 
+        # no Matlab reference impl.
+        #self.register_class(SpotRadius)
+
+        # in Matlab: should not be imported
         self.register_class(UpdateStackLink)
         self.register_class(UpdateStackSpot)
 
@@ -354,14 +360,15 @@ class MastodonFeatureFactory:
 
     def __call__(self, name):
         if name in self._lookup:
-            print("found", name)
             return self._lookup[name]
 
         else:
-            print(f'Warning: Unkown Mastodon feature: {name}')
+            warnings.warn(f'Warning: Unkown Mastodon feature: {name}, skipping', RuntimeWarning)
 
 
 class MastodonFeature:
+    """Base class for reading Mastodon features from project file
+    """
     name = None
     add_to = None
     info = None
@@ -373,12 +380,19 @@ class MastodonFeature:
         pass
 
     def add_projections_to_table(self, projections, V, E):
+        """Adds features to Spot or Link table
+
+        Args:
+            projections (list[dict]): the projections containing the feature information and values
+            V (df): Spot table
+            E (df): Link table
+        """
         if self.add_to == "Link":
             tab = E
         elif self.add_to == "Spot":
             tab = V
         else:
-            raise RuntimeWarning(f"Mastodon Feature '{self.name}': cannot add features to table")
+            warnings.warn(f"Mastodon Feature '{self.name}': cannot add features to '{add_to}' table (should be 'Spot' or 'Link'", RuntimeWarning)
             return
 
         for projection in projections:
@@ -391,7 +405,9 @@ class MastodonFeature:
 class LinkVelocity(MastodonFeature):
     name = 'Link velocity'
     add_to = "Link"
-    info = 'Computes the link velocity as the distance between the source and target spots divided by their frame difference. Units are in physical distance per frame.'
+    info = ('Computes the link velocity as the distance between the source and '
+            'target spots divided by their frame difference. Units are in physical '
+            'distance per frame.')
 
     def read(self, V, E):
         projections = []
@@ -432,10 +448,10 @@ class LinkDisplacement(MastodonFeature):
 class SpotGaussianFilteredIntensity(MastodonFeature):
     name = 'Spot gaussian-filtered intensity'
     add_to = "Spot"
-    info = """Computes the average intensity and its standard deviation inside spots over all
-            sources of the dataset. The average is calculated by a weighted mean over the pixels
-            of the spot, weighted by a gaussian centered in the spot and with a sigma value equal
-            to the minimal radius of the ellipsoid divided by 2."""
+    info = ("Computes the average intensity and its standard deviation inside spots over all"
+            "sources of the dataset. The average is calculated by a weighted mean over the pixels"
+            "of the spot, weighted by a gaussian centered in the spot and with a sigma value equal"
+            "to the minimal radius of the ellipsoid divided by 2.")
 
     def read(self, V, E):
         projections = []
@@ -469,15 +485,14 @@ class SpotGaussianFilteredIntensity(MastodonFeature):
 class SpotMedianIntensity(MastodonFeature):
     name = 'Spot median intensity'
     add_to = "Spot"
-    info = """Computes the median intensity inside a spot,
-              for the pixels inside the largest box that fits into the spot ellipsoid."""
+    info = ("Computes the median intensity inside a spot, for the pixels inside "
+            "the largest box that fits into the spot ellipsoid.")
 
     def read(self, V, E):
         projections = []
         with JavaRawReader(self.mastodon_feature_file) as jr:
             n_sources = jr.read_int();
             for ch in range(n_sources):
-                # Mean.
                 projection = dict()
 
                 projection["key"]        = f'Spot median intensity ch{ch}'
@@ -499,7 +514,7 @@ class SpotNLinks(MastodonFeature):
     def read(self, V, E):
         projections = []
         with JavaRawReader(self.mastodon_feature_file) as jr:
-                # Mean.
+                # 0.
             projection = dict()
 
             projection["key"]        = 'Spot N links'
@@ -526,7 +541,6 @@ class SpotSumIntensity(MastodonFeature):
         with JavaRawReader(self.mastodon_feature_file) as jr:
             n_sources = jr.read_int();
             for ch in range(n_sources):
-                # Mean.
                 projection = dict()
 
                 projection["key"]        = f'Spot sum intensity ch{ch}'
@@ -548,7 +562,6 @@ class SpotTrackID(MastodonFeature):
     def read(self, V, E):
         projections = []
         with JavaRawReader(self.mastodon_feature_file) as jr:
-                # Mean.
             projection = dict()
 
             projection["key"]        = 'Spot track ID'
@@ -572,7 +585,6 @@ class TrackNSpots(MastodonFeature):
     def read(self, V, E):
         projections = []
         with JavaRawReader(self.mastodon_feature_file) as jr:
-                # Mean.
             projection = dict()
 
             projection["key"]        = 'Spot track ID'
@@ -604,7 +616,6 @@ class UpdateStackSpot(MastodonFeature):
 def _import_feature_scalar_double(jr):
     projections = []
     with JavaRawReader(self.mastodon_feature_file) as jr:
-            # Mean.
         projection = dict()
 
         projection["key"]        = jr.read_utf8()
@@ -641,7 +652,26 @@ class LinkCost(MastodonFeature):
 
         self.add_projections_to_table(projections, V, E)
 
+class SpotRadius(MastodonFeature):
+    name = 'Spot radius'
+    add_to = "Spot"
+    info = "Spot radius"
 
+    def read(self, V, E):
+        projections = []
+        with JavaRawReader(self.mastodon_feature_file) as jr:
+            projection = dict()
+
+            projection["key"]        = 'Spot radius'
+            projection["info"]       = self.info
+            projection["dimension"]  = 'None'
+            projection["units"]      = ''
+            projection["map"]        = import_double_map( jr )
+
+            projections.append(projection)
+
+
+        self.add_projections_to_table(projections, V, E)
 
 
 def import_double_map(jr):
