@@ -39,7 +39,9 @@ graph = mr.create_nx_graph(spots, links)
 `pip install git+git://github.com/sommerc/mastodon_reader.git`
 
 #### pip
-`pip install mastodon_reader`
+`pip install Mastodon-Reader`
+
+more information [on PyPi](https://pypi.org/project/Mastodon-Reader/)
 
 #### Dependencies
 * numpy
