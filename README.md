@@ -1,8 +1,7 @@
 # Mastodon Reader for Python
-Import the spot and link tables, features, tags and meta data from a Mastodon project file.
+Import the *spots and links tables*, *features*, *tags* and meta data from a *Mastodon project file*.
 
-(ported from: https://github.com/mastodon-sc/matlab-mastodon-importer)
----
+ported to Python from: [Matlab importer](https://github.com/mastodon-sc/matlab-mastodon-importer)
 
 ## Example
 Read the mastodon file:
