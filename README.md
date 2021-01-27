@@ -1,33 +1,49 @@
 # Mastodon Reader for Python
-Read graph representation, lineage tables, meta data, and tags from a Mastodon project file.
+Import the spot and link tables, features, tags and meta data from a Mastodon project file.
 
-(no feature import implemented, yet)
+(ported from: https://github.com/mastodon-sc/matlab-mastodon-importer)
+---
 
-ported from: https://github.com/mastodon-sc/matlab-mastodon-importer
-
-# Example
+## Example
 Read the mastodon file:
 ```python
 from mastodon_reader import MastodonReader
 
-mr = MastodonReader("path/to/file.mastodon")
+mr = MastodonReader("demo/mamutproject.mastodon")
 
 # show meta data
-mr.read_metadata()
+meta_data = mr.read_metadata()
 
-# read (networkX) Graph representation, Nodes and Edge tables, and the tag set definitions
-Graph, Nodes, Edges, TagSets = mr.read()
+# read (networkX) graph representation, spot and link tables with features and tags columns
+graph, spots, links, tag_definition = mr.read(tags=True, features=True)
 
 ```
 or read information separately
 
 ```python
-# read only Nodes and Edge tables
-Nodes, Edges = mr.read_tables()
+# read only spot and link tables
+spots, links = mr.read_tables()
 
-# Read Tags and add found tags as columns to the Nodes and Edge tables
-TagSets = mr.read_tags(Nodes, Edges)
+# read tags and add as new columns to the spot and link tables
+tag_definition = mr.read_tags(spots, links)
 
-# Create netwworkX Graph DiGraph representation
-Graph = mr.create_nx_graph(Nodes, Edges)
+# read features and add as new columns to the spot and link tables
+tag_definition = mr.read_features(spots, links)
+
+# create networkX DiGraph representation form spots and links
+graph = mr.create_nx_graph(spots, links)
 ```
+
+## Installation
+#### Current version
+`pip install git+git://github.com/sommerc/mastodon_reader.git`
+
+#### pip
+`pip install mastodon_reader`
+
+#### Dependencies
+* numpy
+* pandas
+* networkx
+
+
