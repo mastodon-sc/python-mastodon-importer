@@ -1,6 +1,8 @@
 import numpy as np
+import networkx as nx
+from matplotlib import pyplot as plt
 
-### Matlabs `ismember()` clone taken from
+### Matlabs `ismember()` clone taken  from
 ### https://github.com/erdogant/ismember/blob/master/ismember/ismember.py
 ### MIT licence
 def ismember(a_vec, b_vec, method=None):
@@ -92,12 +94,9 @@ def RGBint2RGB(rgb_int):
     return (R, G, B)
 
 
+def hierarchy_pos(G, root=None, width=1.0, vert_gap=-1.0, vert_loc=0, xcenter=0.5):
 
-
-
-def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5):
-
-    '''
+    """
     From Joel's answer at https://stackoverflow.com/a/29597209/2966723.
     Licensed under Creative Commons Attribution-Share Alike
 
@@ -121,45 +120,126 @@ def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter 
     vert_loc: vertical location of root
 
     xcenter: horizontal location of root
-    '''
+    """
 
     import networkx as nx
     import random
 
     if not nx.is_tree(G):
-        raise TypeError('cannot use hierarchy_pos on a graph that is not a tree')
+        raise TypeError("cannot use hierarchy_pos on a graph that is not a tree")
 
     if root is None:
         if isinstance(G, nx.DiGraph):
-            root = next(iter(nx.topological_sort(G)))  #allows back compatibility with nx version 1.11
+            root = next(
+                iter(nx.topological_sort(G))
+            )  # allows back compatibility with nx version 1.11
         else:
             root = random.choice(list(G.nodes))
 
-    def _hierarchy_pos(G, root, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5, pos = None, parent = None):
-        '''
+    def _hierarchy_pos(
+        G, root, width=1.0, vert_gap=0.2, vert_loc=0, xcenter=0.5, pos=None, parent=None
+    ):
+        """
         see hierarchy_pos docstring for most arguments
 
         pos: a dict saying where all nodes go if they have been assigned
         parent: parent of this branch. - only affects it if non-directed
 
-        '''
+        """
 
         if pos is None:
-            pos = {root:(xcenter,vert_loc)}
+            pos = {root: (xcenter, vert_loc)}
         else:
             pos[root] = (xcenter, vert_loc)
         children = list(G.neighbors(root))
         if not isinstance(G, nx.DiGraph) and parent is not None:
             children.remove(parent)
-        if len(children)!=0:
-            dx = width/len(children)
-            nextx = xcenter - width/2 - dx/2
+        if len(children) != 0:
+            dx = width / len(children)
+            nextx = xcenter - width / 2 - dx / 2
             for child in children:
                 nextx += dx
-                pos = _hierarchy_pos(G,child, width = dx, vert_gap = vert_gap,
-                                    vert_loc = vert_loc-vert_gap, xcenter=nextx,
-                                    pos=pos, parent = root)
+                pos = _hierarchy_pos(
+                    G,
+                    child,
+                    width=dx,
+                    vert_gap=vert_gap,
+                    vert_loc=vert_loc - vert_gap,
+                    xcenter=nextx,
+                    pos=pos,
+                    parent=root,
+                )
         return pos
 
-
     return _hierarchy_pos(G, root, width, vert_gap, vert_loc, xcenter)
+
+
+class Lineage:
+    def __init__(self, nx_tree):
+        self.nx_tree = nx_tree
+        # remove_wrong_splits(nx_tree, 16)
+
+    def __getitem__(self, node):
+        return self.nx_tree.nodes[node]
+
+    @property
+    def root(self):
+        return next(iter(nx.topological_sort(self.nx_tree)))
+
+    @property
+    def split_nodes(self):
+        return dict(
+            [(v, self.nx_tree.nodes[v]) for v, d in self.nx_tree.out_degree() if d == 2]
+        )
+
+    @property
+    def terminal_nodes(self):
+        return dict(
+            [(v, self.nx_tree.nodes[v]) for v, d in self.nx_tree.out_degree() if d == 0]
+        )
+
+    @property
+    def division_vecs(self):
+        division_vecs = {}
+        for s in self.split_nodes.keys():
+
+            diff = self.division_vector(s)
+            division_vecs[s] = diff
+
+        return division_vecs
+
+    def division_vector(self, s):
+        b1, b2 = self.nx_tree.successors(s)
+        b1_vec = numpy.array([self[b1][a] for a in ["x", "y", "z"]])
+        b2_vec = numpy.array([self[b2][a] for a in ["x", "y", "z"]])
+
+        diff = b1_vec - b2_vec
+        return diff
+
+    def node_positions(self):
+        pos = hierarchy_pos(self.nx_tree)
+
+        return pos
+
+    def draw(self, ax=None):
+        if ax is None:
+            f, ax = plt.subplots()
+
+        nx.draw_networkx(
+            self.nx_tree,
+            pos=self.node_positions(),
+            arrows=False,
+            with_labels=False,
+            node_size=1,
+            ax=ax,
+        )
+
+    @classmethod
+    def clone(cls):
+        return cls(nx_tree)
+
+    def all_split_paths_iter(self):
+        split_nodes = list(self.split_nodes.keys())
+        for node in self.terminal_nodes:
+            path = nx.shortest_path(self.nx_tree, self.root, node)
+            yield list(filter(lambda n: n in split_nodes, path))
