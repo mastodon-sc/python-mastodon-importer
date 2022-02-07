@@ -2,3 +2,4 @@ Mastodon_Reader.egg-info/
 __pycache__/
 build/
 dist/
+.ipynb_checkpoints/
