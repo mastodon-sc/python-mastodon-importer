@@ -68,36 +68,36 @@ class JavaRawReader:
         return self.read(8, ">d")[0]
 
     def read_enum(self):
-        enum_struct = self.read_file_enum_header()            
+        enum_struct = self.read_file_enum_header()
         enum = self.read_file_string()
-        enum_class = enum_struct['class_desc']['class_name']
+        enum_class = enum_struct["class_desc"]["class_name"]
         return enum, enum_class
 
     def read_file_enum_header(self):
         enum_struct = {}
-        enum_struct['tc_enum'] = struct.unpack(">b", self._fh.read(1))[0]
-        if enum_struct['tc_enum'] != 126:
-            raise RuntimeError('Could not find the key for enum in binary file.') 
-        enum_struct['class_desc'] = self.read_file_class_desc()
-        enum_struct['enum_class_desc'] = self.read_file_class_desc()
-        self.read_file_byte()        
+        enum_struct["tc_enum"] = struct.unpack(">b", self._fh.read(1))[0]
+        if enum_struct["tc_enum"] != 126:
+            raise RuntimeError("Could not find the key for enum in binary file.")
+        enum_struct["class_desc"] = self.read_file_class_desc()
+        enum_struct["enum_class_desc"] = self.read_file_class_desc()
+        self.read_file_byte()
         return enum_struct
- 
+
     def read_file_class_desc(self):
         class_desc = {}
-        class_desc['class_desc'] = struct.unpack(">b", self._fh.read(1))[0]
-        if class_desc['class_desc'] != 114:
-            raise RuntimeError('Could not find the key for enum in binary file.')
-        class_desc['class_name'] = self.read_file_utf8()
-        class_desc['serial_version_UID'] = self.read_file_long()
-        class_desc['n_handle_bytes'] = self.read_file_byte()        
-        class_desc['n_handle'] = self.read_file_short()        
-        class_desc['end_block'] = self.read_file_byte()
+        class_desc["class_desc"] = struct.unpack(">b", self._fh.read(1))[0]
+        if class_desc["class_desc"] != 114:
+            raise RuntimeError("Could not find the key for enum in binary file.")
+        class_desc["class_name"] = self.read_file_utf8()
+        class_desc["serial_version_UID"] = self.read_file_long()
+        class_desc["n_handle_bytes"] = self.read_file_byte()
+        class_desc["n_handle"] = self.read_file_short()
+        class_desc["end_block"] = self.read_file_byte()
         return class_desc
-    
+
     def read_file_utf8(self):
         str_length = struct.unpack(">h", self._fh.read(2))[0]
-        string = self._fh.read(str_length).decode('utf-8')
+        string = self._fh.read(str_length).decode("utf-8")
         return string
 
     def read_file_short(self):
@@ -107,43 +107,43 @@ class JavaRawReader:
     def read_file_long(self):
         val = struct.unpack(">q", self._fh.read(8))[0]
         return val
-    
+
     def read_file_byte(self):
         val = struct.unpack(">b", self._fh.read(1))[0]
         return val
-    
+
     def read_file_string(self):
         self.read_file_byte()
         string = self.read_file_utf8()
         return string
-        
+
     def import_double_map(self):
         n_entries = self.read_int()
         map_ = numpy.zeros((n_entries, 2))
         for proj in range(n_entries):
             map_[proj, 0] = self.read_int()
             map_[proj, 1] = self.read_double_rev()
-        return map_        
-    
+        return map_
+
     def import_int_map(self):
         n_entries = self.read_int()
         map_ = numpy.zeros((n_entries, 2), dtype=int)
         for proj in range(n_entries):
             map_[proj, 0] = self.read_int()
             map_[proj, 1] = self.read_int()
-        return map_        
+        return map_
 
     def import_feature_scalar_double(self):
         projections = []
         projection = dict()
 
-        projection['key'] = self.read_utf8()
-        projection['info'] = self.read_utf8();
-        projection['dimension'] = self.read_enum();
-        projection['units'] = self.read_utf8()
-        if isinstance(projection['units'], str) and len(projection['units'])==0:
-            projection['units'] = ''
-        projection['map'] = self.import_double_map()
+        projection["key"] = self.read_utf8()
+        projection["info"] = self.read_utf8()
+        projection["dimension"] = self.read_enum()
+        projection["units"] = self.read_utf8()
+        if isinstance(projection["units"], str) and len(projection["units"]) == 0:
+            projection["units"] = ""
+        projection["map"] = self.import_double_map()
         projections.append(projection)
         return projections
 
@@ -329,7 +329,7 @@ class MastodonReader:
             pat = re.compile(r"^features/(.+?)\.raw$")
             for fn in feature_files:
                 match = pat.search(fn).group(1)
-                if match.replace(' ', '').lower() in glbls:
+                if match.replace(" ", "").lower() in glbls:
                     features[match] = masto_zip.open(fn, "r")
 
             mff = MastodonFeatureFactory()
@@ -499,11 +499,12 @@ class MastodonFeature:
             _, idx = ismember(projection["map"][:, 0].astype("int32"), tab_index)
             tab.loc[idx, projection["key"]] = projection["map"][:, 1]
 
-'''
+
+"""
 def import_feature_scalar_double(jr):
     projections = []
     projection = dict()
-    
+
     projection['key'] = jr.read_utf8()
     projection['info'] = jr.read_utf8();
     projection['dimension'] = jr.read_enum();
@@ -513,7 +514,7 @@ def import_feature_scalar_double(jr):
     projection['map'] = jr.import_double_map()
     projections.append(projection)
     return projections
-'''
+"""
 
 
 class LinkVelocity(MastodonFeature):
@@ -559,22 +560,27 @@ class LinkDisplacement(MastodonFeature):
 
         self.add_projections_to_table(projections, V, E)
 
+
 class SpotIntensity(MastodonFeature):
     name = "Spot intensity"
     add_to = "Spot"
-    info = ['Computes spot intensity features like mean, median, etc for all the channels of the source image.', 'All the pixels within the spot ellipsoid are taken into account']
+    info = [
+        "Computes spot intensity features like mean, median, etc for all the channels of the source image.",
+        "All the pixels within the spot ellipsoid are taken into account",
+    ]
+
     def read(self, V, E):
         projections = []
         with JavaRawReader(self.mastodon_feature_file) as jr:
             n_sources = jr.read_int()
             for ch in range(1, (n_sources + 1)):
-                for kw in ['Mean', 'Std', 'Min', 'Max', 'Median', 'Sum']:
+                for kw in ["Mean", "Std", "Min", "Max", "Median", "Sum"]:
                     projection = dict()
-                    projection['key'] = 'Spot intensity {} ch{:2d}'.format(kw, ch)
-                    projection['info'] = self.info
-                    projection['dimension'] = 'INTENSITY'
-                    projection['units'] = 'Counts'
-                    projection['map'] = jr.import_double_map()
+                    projection["key"] = "Spot intensity {} ch{:2d}".format(kw, ch)
+                    projection["info"] = self.info
+                    projection["dimension"] = "INTENSITY"
+                    projection["units"] = "Counts"
+                    projection["map"] = jr.import_double_map()
                     projections.append(projection)
 
         self.add_projections_to_table(projections, V, E)
@@ -745,7 +751,7 @@ class UpdateStackSpot(MastodonFeature):
     info = "Do not import"
 
 
-'''
+"""
 def _import_feature_scalar_double(jr):
     projections = []
     with JavaRawReader(self.mastodon_feature_file) as jr:
@@ -760,7 +766,7 @@ def _import_feature_scalar_double(jr):
         projections.append(projection)
 
     return projections
-'''
+"""
 
 
 class DetectionQuality(MastodonFeature):
@@ -792,7 +798,7 @@ class LinkCost(MastodonFeature):
 class SpotRadius(MastodonFeature):
     name = "Spot radius"
     add_to = "Spot"
-    info = 'Computes the spot equivalent radius. This is the radius of the sphere that would have the same volume that of the spot.'
+    info = "Computes the spot equivalent radius. This is the radius of the sphere that would have the same volume that of the spot."
 
     def read(self, V, E):
         projections = []
