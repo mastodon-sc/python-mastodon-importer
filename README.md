@@ -9,7 +9,7 @@ Read the mastodon file:
 ```python
 from mastodon_reader import MastodonReader
 
-mr = MastodonReader("demo/mamutproject.mastodon")
+mr = MastodonReader("demo/demo.mastodon")
 
 # show meta data
 meta_data = mr.read_metadata()
