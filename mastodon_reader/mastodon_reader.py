@@ -426,24 +426,25 @@ class MastodonFeatureFactory:
 
         # adjust function to cover available class definitions to handle features
         # might change with time
-        self.register_class(LinkVelocity)
-        self.register_class(LinkDisplacement)
-        self.register_class(SpotIntensity)
-        self.register_class(SpotGaussianFilteredIntensity)
-        self.register_class(SpotMedianIntensity)
-        self.register_class(SpotNLinks)
-        self.register_class(SpotSumIntensity)
-        self.register_class(SpotTrackID)
-        self.register_class(TrackNSpots)
         self.register_class(DetectionQuality)
         self.register_class(LinkCost)
-
-        # no Matlab reference impl.
+        self.register_class(LinkDisplacement)
+        self.register_class(LinkVelocity)
+        self.register_class(SpotCenterIntensity)        
+        self.register_class(SpotIntensity)
+        self.register_class(SpotQuickMean)
         self.register_class(SpotRadius)
+        self.register_class(SpotTrackID)
+        self.register_class(TrackNSpots)
+
+        #self.register_class(SpotGaussianFilteredIntensity)
+        #self.register_class(SpotMedianIntensity)
+        #self.register_class(SpotNLinks)
+        #self.register_class(SpotSumIntensity)
 
         # in Matlab: should not be imported
-        self.register_class(UpdateStackLink)
-        self.register_class(UpdateStackSpot)
+        # self.register_class(UpdateStackLink)
+        # self.register_class(UpdateStackSpot)
 
     def register_class(self, klass):
         self._lookup[klass.name] = klass
@@ -498,22 +499,6 @@ class MastodonFeature:
 
             _, idx = ismember(projection["map"][:, 0].astype("int32"), tab_index)
             tab.loc[idx, projection["key"]] = projection["map"][:, 1]
-
-'''
-def import_feature_scalar_double(jr):
-    projections = []
-    projection = dict()
-    
-    projection['key'] = jr.read_utf8()
-    projection['info'] = jr.read_utf8();
-    projection['dimension'] = jr.read_enum();
-    projection['units'] = jr.read_utf8()
-    if isinstance(projection['units'], str) and len(projection['units'])==0:
-        projection['units'] = ''
-    projection['map'] = jr.import_double_map()
-    projections.append(projection)
-    return projections
-'''
 
 
 class LinkVelocity(MastodonFeature):
@@ -576,6 +561,59 @@ class SpotIntensity(MastodonFeature):
                     projection['units'] = 'Counts'
                     projection['map'] = jr.import_double_map()
                     projections.append(projection)
+
+        self.add_projections_to_table(projections, V, E)
+
+
+class SpotCenterIntensity(MastodonFeature):
+    name = "Spot center intensity"
+    add_to = "Spot"
+    info = (
+        'Computes the intensity at the center of spots by taking the mean of pixel intensity '
+        'weigthted by a gaussian. The gaussian weights are centered int the spot, '
+        'and have a sigma value equal to the minimal radius of the ellipsoid divided by 2.'
+    )
+
+    def read(self, V, E):
+        projections = []
+        with JavaRawReader(self.mastodon_feature_file) as jr:
+            n_sources = jr.read_int()
+            for ch in range(n_sources):
+                # Mean.
+                projection = dict()
+                projection["key"] = f"Spot center intensity ch{ch}"
+                projection["info"] = self.info
+                projection["dimension"] = "INTENSITY"
+                projection["units"] = "Counts"
+                projection["map"] = jr.import_double_map()
+
+                projections.append(projection)
+
+        self.add_projections_to_table(projections, V, E)
+
+
+class SpotQuickMean(MastodonFeature):
+    name = "Spot quick mean"
+    add_to = "Spot"
+    info = (
+        'Computes the mean intensity of spots using the highest resolution level to speedup calculation. '
+        'It is recommended to use the "Spot intensity" feature when the best accuracy is required.'
+    )
+
+    def read(self, V, E):
+        projections = []
+        with JavaRawReader(self.mastodon_feature_file) as jr:
+            n_sources = jr.read_int()
+            for ch in range(n_sources):
+                # Mean.
+                projection = dict()
+                projection["key"] = f"Spot quick mean ch{ch}"
+                projection["info"] = self.info
+                projection["dimension"] = "INTENSITY"
+                projection["units"] = "Counts"
+                projection["map"] = jr.import_double_map()
+
+                projections.append(projection)
 
         self.add_projections_to_table(projections, V, E)
 
@@ -733,6 +771,7 @@ class TrackNSpots(MastodonFeature):
         self.add_projections_to_table(projections, V, E)
 
 
+'''
 class UpdateStackLink(MastodonFeature):
     name = "Update stack Link"
     add_to = "Link"
@@ -743,7 +782,7 @@ class UpdateStackSpot(MastodonFeature):
     name = "Update stack Spot"
     add_to = "Spot"
     info = "Do not import"
-
+'''
 
 '''
 def _import_feature_scalar_double(jr):
