@@ -784,24 +784,6 @@ class UpdateStackSpot(MastodonFeature):
     info = "Do not import"
 '''
 
-'''
-def _import_feature_scalar_double(jr):
-    projections = []
-    with JavaRawReader(self.mastodon_feature_file) as jr:
-        projection = dict()
-
-        projection["key"] = jr.read_utf8()
-        projection["info"] = jr.read_utf8()
-        projection["dimension"] = jr.read_enum()  ### TODO
-        projection["units"] = jr.read_utf8()
-        projection["map"] = jr.import_double_map()
-
-        projections.append(projection)
-
-    return projections
-'''
-
-
 class DetectionQuality(MastodonFeature):
     name = "Detection quality"
     add_to = "Spot"
