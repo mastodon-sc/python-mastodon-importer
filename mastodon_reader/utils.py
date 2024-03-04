@@ -2,6 +2,9 @@ import numpy as np
 import networkx as nx
 from matplotlib import pyplot as plt
 
+__all__ = ["ismember", "RGBint2RGB"]
+
+
 ### Matlabs `ismember()` clone taken  from
 ### https://github.com/erdogant/ismember/blob/master/ismember/ismember.py
 ### MIT licence
@@ -95,7 +98,6 @@ def RGBint2RGB(rgb_int):
 
 
 def hierarchy_pos(G, root=None, width=1.0, vert_gap=-1.0, vert_loc=0, xcenter=0.5):
-
     """
     From Joel's answer at https://stackoverflow.com/a/29597209/2966723.
     Licensed under Creative Commons Attribution-Share Alike
@@ -177,9 +179,10 @@ def hierarchy_pos(G, root=None, width=1.0, vert_gap=-1.0, vert_loc=0, xcenter=0.
 class Lineage:
     """Experimental class for lineage analysis based on NetworkX trees
 
-    :alert work in progress
-    
+    :alert: work in progress
+
     """
+
     def __init__(self, nx_tree):
         self.nx_tree = nx_tree
         # remove_wrong_splits(nx_tree, 16)
