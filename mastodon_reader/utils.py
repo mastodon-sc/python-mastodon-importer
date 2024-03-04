@@ -175,6 +175,11 @@ def hierarchy_pos(G, root=None, width=1.0, vert_gap=-1.0, vert_loc=0, xcenter=0.
 
 
 class Lineage:
+    """Experimental class for lineage analysis based on NetworkX trees
+
+    :alert work in progress
+    
+    """
     def __init__(self, nx_tree):
         self.nx_tree = nx_tree
         # remove_wrong_splits(nx_tree, 16)
@@ -210,8 +215,8 @@ class Lineage:
 
     def division_vector(self, s):
         b1, b2 = self.nx_tree.successors(s)
-        b1_vec = numpy.array([self[b1][a] for a in ["x", "y", "z"]])
-        b2_vec = numpy.array([self[b2][a] for a in ["x", "y", "z"]])
+        b1_vec = np.array([self[b1][a] for a in ["x", "y", "z"]])
+        b2_vec = np.array([self[b2][a] for a in ["x", "y", "z"]])
 
         diff = b1_vec - b2_vec
         return diff
@@ -234,9 +239,9 @@ class Lineage:
             ax=ax,
         )
 
-    @classmethod
-    def clone(cls):
-        return cls(nx_tree)
+    @staticmethod
+    def clone(self):
+        return self.__class__(self.nx_tree)
 
     def all_split_paths_iter(self):
         split_nodes = list(self.split_nodes.keys())
