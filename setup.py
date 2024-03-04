@@ -28,6 +28,6 @@ setup(
     #    entry_points = {'console_scripts': []},
     author="Christoph Sommer",
     author_email="christoph.sommer23@gmail.com",
-    install_requires=["numpy", "pandas", "networkx"],
+    install_requires=["numpy", "pandas", "networkx", "matplotlib"],
 )
 
