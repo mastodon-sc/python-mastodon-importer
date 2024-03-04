@@ -1,5 +1,6 @@
 import io
 import re
+import os
 import numpy
 import pandas
 import struct
@@ -163,6 +164,7 @@ class JavaRawReader:
 
 class MastodonReader:
     def __init__(self, source_file):
+        assert os.path.exists(source_file), f"File '{source_file}' does not exist."
         self.source_file = source_file
 
     def read_metadata(self):
