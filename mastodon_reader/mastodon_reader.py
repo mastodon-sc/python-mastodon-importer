@@ -166,6 +166,7 @@ class MastodonReader:
         self.source_file = source_file
 
     def read_metadata(self):
+        """Retrieve the metadata, made mainly of the physical units, and the absolute path to the XML/H5 BDV file"""
         with zipfile.ZipFile(self.source_file) as masto_zip:
             with masto_zip.open("project.xml", "r") as proj_xml:
                 xml_root = ET.fromstring(proj_xml.read())
@@ -177,13 +178,16 @@ class MastodonReader:
                 RuntimeWarning,
             )
 
-        movie_filename = xml_root.findall("SpimDataFile")[0].text
+        spim_data_file_tag = xml_root.findall("SpimDataFile")[0]
+        spim_data_file_path = spim_data_file_tag.text
+        spim_data_file_path_type = spim_data_file_tag.attrib.get("type")
         space_units = xml_root.findall("SpaceUnits")[0].text
         time_units = xml_root.findall("TimeUnits")[0].text
 
         return {
             "version": mastodon_version,
-            "file": movie_filename,
+            "spim_data_file_path": spim_data_file_path,
+            "spim_data_file_path_type": spim_data_file_path_type,
             "space unit": space_units,
             "time unit": time_units,
         }
@@ -250,7 +254,7 @@ class MastodonReader:
                 # % What are the rows, in the table, that have these ids?
                 _, idx1 = ismember(object_ids, tab.index.to_numpy())
 
-                #% Fill these rows with the tag_id
+                # % Fill these rows with the tag_id
                 columns[tag_set][idx1] = tag_id
 
         for i, ts in enumerate(tss):
@@ -418,8 +422,7 @@ class MastodonReader:
 
 
 class MastodonFeatureFactory:
-    """Factory class for Mastodon features
-    """
+    """Factory class for Mastodon features"""
 
     def __init__(self):
         self._lookup = {}
@@ -430,17 +433,17 @@ class MastodonFeatureFactory:
         self.register_class(LinkCost)
         self.register_class(LinkDisplacement)
         self.register_class(LinkVelocity)
-        self.register_class(SpotCenterIntensity)        
+        self.register_class(SpotCenterIntensity)
         self.register_class(SpotIntensity)
         self.register_class(SpotQuickMean)
         self.register_class(SpotRadius)
         self.register_class(SpotTrackID)
         self.register_class(TrackNSpots)
 
-        #self.register_class(SpotGaussianFilteredIntensity)
-        #self.register_class(SpotMedianIntensity)
-        #self.register_class(SpotNLinks)
-        #self.register_class(SpotSumIntensity)
+        # self.register_class(SpotGaussianFilteredIntensity)
+        # self.register_class(SpotMedianIntensity)
+        # self.register_class(SpotNLinks)
+        # self.register_class(SpotSumIntensity)
 
         # in Matlab: should not be imported
         # self.register_class(UpdateStackLink)
@@ -460,8 +463,7 @@ class MastodonFeatureFactory:
 
 
 class MastodonFeature:
-    """Base class for reading Mastodon features from project file
-    """
+    """Base class for reading Mastodon features from project file"""
 
     name = None
     add_to = None
@@ -574,9 +576,9 @@ class SpotCenterIntensity(MastodonFeature):
     name = "Spot center intensity"
     add_to = "Spot"
     info = (
-        'Computes the intensity at the center of spots by taking the mean of pixel intensity '
-        'weigthted by a gaussian. The gaussian weights are centered int the spot, '
-        'and have a sigma value equal to the minimal radius of the ellipsoid divided by 2.'
+        "Computes the intensity at the center of spots by taking the mean of pixel intensity "
+        "weigthted by a gaussian. The gaussian weights are centered int the spot, "
+        "and have a sigma value equal to the minimal radius of the ellipsoid divided by 2."
     )
 
     def read(self, V, E):
@@ -601,7 +603,7 @@ class SpotQuickMean(MastodonFeature):
     name = "Spot quick mean"
     add_to = "Spot"
     info = (
-        'Computes the mean intensity of spots using the highest resolution level to speedup calculation. '
+        "Computes the mean intensity of spots using the highest resolution level to speedup calculation. "
         'It is recommended to use the "Spot intensity" feature when the best accuracy is required.'
     )
 
