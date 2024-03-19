@@ -1,6 +1,6 @@
 import numpy as np
 import networkx as nx
-from matplotlib import pyplot as plt
+
 
 __all__ = ["ismember", "RGBint2RGB"]
 
@@ -229,10 +229,7 @@ class Lineage:
 
         return pos
 
-    def draw(self, ax=None):
-        if ax is None:
-            f, ax = plt.subplots()
-
+    def draw(self, ax):
         nx.draw_networkx(
             self.nx_tree,
             pos=self.node_positions(),
