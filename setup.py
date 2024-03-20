@@ -12,7 +12,7 @@ exec((_this_dir / "mastodon_reader" / "version.py").read_text())
 
 
 setup(
-    name="Mastodon Reader",
+    name="Mastodon-Reader",
     packages=["mastodon_reader"],
     version=__version__,
     description="Mastodon project file reader for Python",
