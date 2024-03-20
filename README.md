@@ -1,7 +1,7 @@
 # Mastodon Reader for Python
 Import the *spots and links tables*, *features*, *tags* and meta data from a *Mastodon project file*.
 
-ported to Python from: [Matlab importer](https://github.com/mastodon-sc/matlab-mastodon-importer)
+ported to Python from: [matlab-mastodon-importer](https://github.com/mastodon-sc/matlab-mastodon-importer)
 
 ## Example
 Read the mastodon file:
@@ -36,7 +36,7 @@ graph = mr.create_nx_graph(spots, links)
 
 ## Installation
 #### Current version
-`pip install git+git://github.com/sommerc/mastodon_reader.git`
+`pip install git+git://github.com/mastodon-sc/python-mastodon-importer.git`
 
 #### pip
 `pip install Mastodon-Reader`
